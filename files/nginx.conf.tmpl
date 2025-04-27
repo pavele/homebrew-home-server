@@ -5,7 +5,7 @@ pid        {{ROOT_DIR}}/nginx/nginx.pid;
 events { worker_connections 1024; }
 
 http {
-    include       mime.types;
+    include       {{HOMEBREW_PREFIX}}/etc/nginx/mime.types;
     default_type  application/octet-stream;
     sendfile      on;
     keepalive_timeout 65;

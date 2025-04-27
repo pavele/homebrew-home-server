@@ -16,10 +16,11 @@ echo "▶  Domain          : $DOMAIN"
 echo "▶  Home‑Assistant  : $HA_BACKEND"
 
 # ── paths --------------------------------------------------------------------
+HOMEBREW_PREFIX="$(brew --prefix)"
+NGINX_PREFIX="$(brew --prefix nginx)/etc/nginx"
 ROOT_DIR="$HOME/home-server"
-NGINX_DIR="$ROOT_DIR/nginx"
-SSL_DIR="$NGINX_DIR/ssl"
-SITES_DIR="$NGINX_DIR/sites-enabled"
+SSL_DIR="$ROOT_DIR/ssl"
+SITES_DIR="$NGINX_PREFIX/sites-enabled"
 HTML_DIR="$ROOT_DIR/html"
 
 CRT="$SSL_DIR/${DOMAIN}.crt"
@@ -42,29 +43,38 @@ fi
 
 # ── renderer -----------------------------------------------------------------
 render() {               # $1 template  $2 dest
-  sed -e "s|{{ROOT_DIR}}|$ROOT_DIR|g" \
+  sed -e "s|{{HOMEBREW_PREFIX}}|$HOMEBREW_PREFIX|g" \
+      -e "s|{{ROOT_DIR}}|$ROOT_DIR|g" \
       -e "s|{{DOMAIN}}|$DOMAIN|g" \
       -e "s|{{CRT}}|$CRT|g" \
       -e "s|{{KEY}}|$KEY|g" \
       -e "s|{{HA_BACKEND}}|$HA_BACKEND|g" \
-      -e "s|{{NGINX_CONF}}|$NGINX_DIR/nginx.conf|g" \
+      -e "s|{{NGINX_PREFIX}}|$NGINX_PREFIX|g" \
       -e "s|{{BREW_NGINX}}|$BREW_NGINX|g" \
       "$1" > "$2"
 }
 
-render "$TEMPLATE_DIR/nginx.conf.tmpl"    "$NGINX_DIR/nginx.conf"
+# Create nginx.conf with proper mime.types path
+render "$TEMPLATE_DIR/nginx.conf.tmpl"    "$NGINX_PREFIX/nginx.conf"
 render "$TEMPLATE_DIR/vhost.conf.tmpl"    "$SITES_DIR/$DOMAIN.conf"
 render "$TEMPLATE_DIR/index.html.tmpl"    "$HTML_DIR/index.html"
 render "$TEMPLATE_DIR/launchd.plist.tmpl" "$PLIST"
 
+# ── nginx validation --------------------------------------------------------
+echo "Validating nginx configuration:"
+if ! nginx -t -c "$NGINX_PREFIX/nginx.conf"; then
+  echo "❌ Nginx configuration test failed!" >&2
+  exit 1
+fi
+
 # ── launchd ------------------------------------------------------------------
 launchctl unload "$PLIST" 2>/dev/null || true
-launchctl load  "$PLIST"
+launchctl load -w "$PLIST"
 
 cat <<EOF
 
 ----------------------------------------------------------------------
-✓ nginx running (all config in $ROOT_DIR)
+✓ nginx running (all config in $NGINX_PREFIX)
 
   Landing page  :  http://$DOMAIN
   UniFi         :  https://unifi.$DOMAIN
