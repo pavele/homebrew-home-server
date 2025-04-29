@@ -1,18 +1,14 @@
 class HomeServer < Formula
-  desc     "Local nginx reverse‑proxy stack under ~/home-server"
+  desc "Local nginx reverse-proxy stack under ~/home-server"
   homepage "https://github.com/pavele/homebrew-home-server"
-
-  # always install latest commit on main
-  url     "https://github.com/pavele/homebrew-home-server.git",
-          branch: "main",
-          using:  :git
-  version "latest"
+  url "https://github.com/pavele/homebrew-home-server/archive/refs/tags/v1.0.1.tar.gz"
+  sha256 "abc123..."
   license "MIT"
 
   depends_on "nginx"
 
   def install
-    bin.install  "scripts/home-server-setup"
-    pkgshare.install Dir["files/*"]   # → $(brew --prefix)/share/home-server
+    bin.install "scripts/home-server-setup"
+    pkgshare.install Dir["files/*"]
   end
 end

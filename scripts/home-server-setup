@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# -----------------------------------------------------------------------------
-#  home-server-setup  –  bootstrap ~/home-server
-# -----------------------------------------------------------------------------
 set -euo pipefail
 
 DOMAIN_IN="${1:-}"
@@ -10,76 +7,42 @@ HA_BACKEND="${2:-192.168.1.196:8123}"
 [[ "$HA_BACKEND" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]+$ ]] || {
   echo "Usage: home-server-setup [domain] [ha_ip:port]" >&2; exit 1; }
 
-DOMAIN="${DOMAIN_IN:-$(scutil --get LocalHostName 2>/dev/null || hostname -s).local}"
+DOMAIN="${DOMAIN_IN:-$(scutil --get LocalHostName 2>/dev/null || hostname -s).home.arpa}"
 
-echo "▶  Domain          : $DOMAIN"
-echo "▶  Home‑Assistant  : $HA_BACKEND"
-
-# ── paths --------------------------------------------------------------------
-HOMEBREW_PREFIX="$(brew --prefix)"
-NGINX_PREFIX="$(brew --prefix nginx)/etc/nginx"
+# ── Directory Structure ─────────────────────────────────────────────────────
 ROOT_DIR="$HOME/home-server"
-SSL_DIR="$ROOT_DIR/ssl"
-SITES_DIR="$NGINX_PREFIX/sites-enabled"
+NGINX_DIR="$ROOT_DIR/nginx"
+SITES_DIR="$NGINX_DIR/sites-enabled"
+LOGS_DIR="$NGINX_DIR/logs"
 HTML_DIR="$ROOT_DIR/html"
-
-CRT="$SSL_DIR/${DOMAIN}.crt"
-KEY="$SSL_DIR/${DOMAIN}.key"
-
 PLIST="$HOME/Library/LaunchAgents/homebrew.home-server.local.plist"
-BREW_NGINX="$(brew --prefix nginx)/bin/nginx"
 TEMPLATE_DIR="$(brew --prefix home-server)/share/home-server"
 
-mkdir -p "$SSL_DIR" "$SITES_DIR" "$HTML_DIR"
+mkdir -p "$SITES_DIR" "$LOGS_DIR" "$HTML_DIR"
 
-# ── certificate --------------------------------------------------------------
-if [[ ! -f $CRT ]]; then
-  openssl req -x509 -nodes -newkey rsa:4096 -days 825 \
-         -keyout "$KEY" -out "$CRT" \
-         -subj "/CN=*.$DOMAIN" \
-         -addext "subjectAltName=DNS:$DOMAIN,DNS:*.$DOMAIN"
-  echo "✔  Certificate created → $CRT"
-fi
-
-# ── renderer -----------------------------------------------------------------
-render() {               # $1 template  $2 dest
-  sed -e "s|{{HOMEBREW_PREFIX}}|$HOMEBREW_PREFIX|g" \
-      -e "s|{{ROOT_DIR}}|$ROOT_DIR|g" \
-      -e "s|{{DOMAIN}}|$DOMAIN|g" \
-      -e "s|{{CRT}}|$CRT|g" \
-      -e "s|{{KEY}}|$KEY|g" \
-      -e "s|{{HA_BACKEND}}|$HA_BACKEND|g" \
-      -e "s|{{NGINX_PREFIX}}|$NGINX_PREFIX|g" \
-      -e "s|{{BREW_NGINX}}|$BREW_NGINX|g" \
-      "$1" > "$2"
+# ── Template Rendering ───────────────────────────────────────────────────────
+render() {
+  sed -e "s|{{ROOT_DIR}}|$ROOT_DIR|g" \
+     -e "s|{{DOMAIN}}|$DOMAIN|g" \
+     -e "s|{{HA_BACKEND}}|$HA_BACKEND|g" \
+     -e "s|{{HTML_DIR}}|$HTML_DIR|g" \
+     "$1" > "$2"
 }
 
-# Create nginx.conf with proper mime.types path
-render "$TEMPLATE_DIR/nginx.conf.tmpl"    "$NGINX_PREFIX/nginx.conf"
-render "$TEMPLATE_DIR/vhost.conf.tmpl"    "$SITES_DIR/$DOMAIN.conf"
-render "$TEMPLATE_DIR/index.html.tmpl"    "$HTML_DIR/index.html"
-render "$TEMPLATE_DIR/launchd.plist.tmpl" "$PLIST"
+render "$TEMPLATE_DIR/nginx.conf.tmpl" "$NGINX_DIR/nginx.conf"
+render "$TEMPLATE_DIR/vhost.conf.tmpl" "$SITES_DIR/default.conf"
+render "$TEMPLATE_DIR/index.html.tmpl" "$HTML_DIR/index.html"
 
-# ── nginx validation --------------------------------------------------------
-echo "Validating nginx configuration:"
-if ! nginx -t -c "$NGINX_PREFIX/nginx.conf"; then
-  echo "❌ Nginx configuration test failed!" >&2
-  exit 1
-fi
-
-# ── launchd ------------------------------------------------------------------
+# ── Service Management ──────────────────────────────────────────────────────
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load -w "$PLIST"
 
 cat <<EOF
+✅ Setup complete! Services available at:
 
-----------------------------------------------------------------------
-✓ nginx running (all config in $NGINX_PREFIX)
-
-  Landing page  :  http://$DOMAIN
-  UniFi         :  https://unifi.$DOMAIN
-  Plex          :  https://pms.$DOMAIN
-  Home Assistant:  https://ha.$DOMAIN   (→ $HA_BACKEND)
-  qBittorrent   :  https://qbittorrent.$DOMAIN
-----------------------------------------------------------------------
+   Dashboard:     http://$DOMAIN
+   UniFi:         http://unifi.$DOMAIN
+   Plex:          http://pms.$DOMAIN
+   Home Assistant:http://ha.$DOMAIN
+   qBittorrent:   http://qbittorrent.$DOMAIN
 EOF
