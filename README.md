@@ -93,3 +93,28 @@ nginx -t -c ~/home-server/nginx/nginx.conf
 ```console
 rm -rf ~/home-server && home-server-setup
 ```
+
+
+## Unifi subdomain configuration (macos 15, m1)
+find the location of config.gateway.json - it is on the host where the unifi controller is running
+```bash
+~/Library/Application Support/UniFi/data/sites/default
+```
+if sites is missing create a floor plan
+
+make the changes
+```json
+{
+  "service": {
+    "dns": {
+      "forwarding": {
+        "system": "true",
+        "options": [
+          "local=/mini.home.arpa/",  
+          "cname=*.mini.home.arpa,mini.home.arpa"
+        ]
+      }
+    }
+  }
+}
+```
