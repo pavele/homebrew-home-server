@@ -1,0 +1,63 @@
+name: Update Formula on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get release information
+        id: release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const release = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id
+            });
+            const tagName = release.data.tag_name;
+            const version = tagName.replace(/^v/, '');
+            const tarballUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/archive/refs/tags/${tagName}.tar.gz`;
+            
+            core.setOutput('version', version);
+            core.setOutput('tarball_url', tarballUrl);
+            console.log(`Version: ${version}`);
+            console.log(`Tarball URL: ${tarballUrl}`);
+
+      - name: Download tarball and calculate SHA256
+        id: sha
+        run: |
+          TARBALL_URL="${{ steps.release.outputs.tarball_url }}"
+          echo "Downloading from $TARBALL_URL"
+          curl -sL "$TARBALL_URL" -o release.tar.gz
+          SHA256=$(sha256sum release.tar.gz | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+
+      - name: Update formula
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+          FORMULA_FILE="Formula/home-server.rb"
+          
+          # Update version and SHA256 in the formula
+          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz\"|" "$FORMULA_FILE"
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" "$FORMULA_FILE"
+          
+          cat "$FORMULA_FILE"
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Formula/home-server.rb
+          git commit -m "Update formula to version ${{ steps.release.outputs.version }}"
+          git push
