@@ -17,8 +17,10 @@ LOGS_DIR="$NGINX_DIR/logs"
 HTML_DIR="$ROOT_DIR/html"
 PLIST="$HOME/Library/LaunchAgents/homebrew.home-server.local.plist"
 TEMPLATE_DIR="$(brew --prefix home-server)/share/home-server"
+BREW_NGINX="$(brew --prefix nginx)/bin/nginx"
 
 mkdir -p "$SITES_DIR" "$LOGS_DIR" "$HTML_DIR"
+mkdir -p "$HOME/Library/LaunchAgents"
 
 # ── Template Rendering ───────────────────────────────────────────────────────
 render() {
@@ -26,12 +28,17 @@ render() {
      -e "s|{{DOMAIN}}|$DOMAIN|g" \
      -e "s|{{HA_BACKEND}}|$HA_BACKEND|g" \
      -e "s|{{HTML_DIR}}|$HTML_DIR|g" \
+     -e "s|{{LOGS_DIR}}|$LOGS_DIR|g" \
+     -e "s|{{NGINX_DIR}}|$NGINX_DIR|g" \
+     -e "s|{{SITES_DIR}}|$SITES_DIR|g" \
+     -e "s|{{BREW_NGINX}}|$BREW_NGINX|g" \
      "$1" > "$2"
 }
 
 render "$TEMPLATE_DIR/nginx.conf.tmpl" "$NGINX_DIR/nginx.conf"
 render "$TEMPLATE_DIR/vhost.conf.tmpl" "$SITES_DIR/default.conf"
 render "$TEMPLATE_DIR/index.html.tmpl" "$HTML_DIR/index.html"
+render "$TEMPLATE_DIR/launchd.plist.tmpl" "$PLIST"
 
 # ── Service Management ──────────────────────────────────────────────────────
 launchctl unload "$PLIST" 2>/dev/null || true
