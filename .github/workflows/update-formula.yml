@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Get release information
         id: release
@@ -60,4 +62,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add Formula/home-server.rb
           git commit -m "Update formula to version ${{ steps.release.outputs.version }}"
-          git push
+          git push origin HEAD:main
