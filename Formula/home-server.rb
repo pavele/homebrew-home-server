@@ -11,4 +11,8 @@ class HomeServer < Formula
     bin.install "scripts/home-server-setup"
     pkgshare.install Dir["files/*"]
   end
+
+  test do
+    assert_match "Usage: home-server-setup", shell_output("#{bin}/home-server-setup --help invalid", 1)
+  end
 end
