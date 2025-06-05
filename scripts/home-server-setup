@@ -50,6 +50,6 @@ cat <<EOF
    Dashboard:     http://$DOMAIN
    UniFi:         http://unifi.$DOMAIN
    Plex:          http://pms.$DOMAIN
-   Home Assistant:http://ha.$DOMAIN
+   Home Assistant: http://ha.$DOMAIN
    qBittorrent:   http://qbittorrent.$DOMAIN
 EOF
